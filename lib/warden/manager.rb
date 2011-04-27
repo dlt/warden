@@ -38,9 +38,10 @@ module Warden
       result ||= {}
       case result
       when Array
-        if result.first == 401 && intercept_401?(env)
+        if interceptable?(env, result)
           process_unauthenticated(env)
         else
+          set_cookies!(env, result)
           result
         end
       when Hash
@@ -85,7 +86,7 @@ module Warden
       config[:intercept_401] && !env['warden'].custom_failure?
     end
 
-    # When a request is unauthentiated, here's where the processing occurs.
+    # When a request is unauthenticated, here's where the processing occurs.
     # It looks at the result of the proxy to see if it's been executed and what action to take.
     # :api: private
     def process_unauthenticated(env, options={})
@@ -120,5 +121,16 @@ module Warden
         raise "No Failure App provided"
       end
     end # call_failure_app
+
+    def interceptable?(env, result)
+      result.first == 401 && intercept_401?(env)
+    end
+
+    def set_cookies!(env, result)
+      headers = result[1]
+      env["warden"].warden_cookies.each do |key, value|
+        Rack::Utils.set_cookie_header!(headers, key, value)
+      end
+    end
   end
 end # Warden
